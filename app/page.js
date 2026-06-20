@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 
 const PHONE_DISPLAY = "+48 453 129 228";
@@ -17,16 +17,127 @@ const IMG = {
   gallery1: "/images/gallery-1.jpg",
   gallery2: "/images/gallery-2.jpg",
   gallery3: "/images/gallery-3.jpg",
+  barber1: "/images/barber-1.jpg",
+  barber2: "/images/barber-2.jpg",
+  barber3: "/images/barber-3.jpg",
+  barber4: "/images/barber-4.jpg",
 };
 
 const COLORS = {
-  ink: "#1A1A1A",
-  paper: "#F2EDE4",
-  red: "#C9402A",
-  green: "#2B4A3E",
-  gray: "#8A8378",
+  ink: "#141413",
+  surface: "#F4F2EE",
+  paper: "#FFFFFF",
+  gold: "#1F4D3A",
+  goldDim: "#163829",
+  gray: "#6B6963",
   white: "#FFFFFF",
 };
+
+function CustomCursor() {
+  const [pos, setPos] = useState({ x: -100, y: -100 });
+  const [hovering, setHovering] = useState(false);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const isTouch = window.matchMedia("(pointer: coarse)").matches;
+    if (isTouch) return;
+
+    const onMove = (e) => {
+      setPos({ x: e.clientX, y: e.clientY });
+      setVisible(true);
+    };
+    const onOver = (e) => {
+      const target = e.target.closest("a, button, [data-cursor-hover]");
+      setHovering(!!target);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseover", onOver);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseover", onOver);
+    };
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: "fixed",
+        left: pos.x,
+        top: pos.y,
+        width: hovering ? 44 : 10,
+        height: hovering ? 44 : 10,
+        borderRadius: "50%",
+        backgroundColor: hovering ? "transparent" : COLORS.gold,
+        border: hovering ? `1.5px solid ${COLORS.gold}` : "none",
+        pointerEvents: "none",
+        zIndex: 9999,
+        transform: "translate(-50%, -50%)",
+        transition:
+          "width 0.25s cubic-bezier(0.16,1,0.3,1), height 0.25s cubic-bezier(0.16,1,0.3,1), background-color 0.25s ease, border-color 0.25s ease",
+        mixBlendMode: "difference",
+      }}
+    />
+  );
+}
+
+function CountUpStat({ target, decimals = 0, suffix = "", label }) {
+  const [value, setValue] = useState(0);
+  const ref = (node) => {
+    if (!node || node._observed) return;
+    node._observed = true;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const duration = 1400;
+            const start = performance.now();
+            const tick = (now) => {
+              const progress = Math.min((now - start) / duration, 1);
+              const eased = 1 - Math.pow(1 - progress, 3);
+              setValue(target * eased);
+              if (progress < 1) requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+            observer.unobserve(node);
+          }
+        });
+      },
+      { threshold: 0.4 }
+    );
+    observer.observe(node);
+  };
+
+  return (
+    <div ref={ref}>
+      <div
+        style={{
+          fontFamily: "'Bebas Neue', Inter, sans-serif",
+          fontSize: "clamp(48px, 8vw, 72px)",
+          color: COLORS.ink,
+          lineHeight: 1,
+        }}
+      >
+        {value.toFixed(decimals)}
+        {suffix}
+      </div>
+      <div
+        style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 12,
+          letterSpacing: 1.5,
+          textTransform: "uppercase",
+          color: COLORS.gray,
+          marginTop: 10,
+        }}
+      >
+        {label}
+      </div>
+    </div>
+  );
+}
 
 function Reveal({ children, delay = 0, style = {} }) {
   const [visible, setVisible] = useState(false);
@@ -62,32 +173,66 @@ function Reveal({ children, delay = 0, style = {} }) {
   );
 }
 
-function StripeDivider({ height = 10 }) {
+function GoldRule({ width = 64 }) {
   return (
     <div
       style={{
-        height,
-        width: "100%",
-        backgroundImage: `repeating-linear-gradient(45deg, ${COLORS.red} 0px, ${COLORS.red} 14px, ${COLORS.paper} 14px, ${COLORS.paper} 28px, ${COLORS.green} 28px, ${COLORS.green} 42px, ${COLORS.paper} 42px, ${COLORS.paper} 56px)`,
+        width,
+        height: 1,
+        backgroundColor: COLORS.gold,
+        margin: "0 auto",
       }}
     />
   );
 }
 
-function CallWhatsRow({ size = "normal" }) {
+function MagneticButton({ children, style, ...props }) {
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const ref = useRef(null);
+
+  const onMouseMove = (e) => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width / 2;
+    const y = e.clientY - rect.top - rect.height / 2;
+    setOffset({ x: x * 0.25, y: y * 0.35 });
+  };
+  const onMouseLeave = () => setOffset({ x: 0, y: 0 });
+
+  return (
+    <a
+      ref={ref}
+      onMouseMove={onMouseMove}
+      onMouseLeave={onMouseLeave}
+      style={{
+        ...style,
+        transform: `translate(${offset.x}px, ${offset.y}px)`,
+        transition: offset.x === 0 && offset.y === 0
+          ? "transform 0.4s cubic-bezier(0.16,1,0.3,1)"
+          : "transform 0.1s ease-out",
+      }}
+      {...props}
+    >
+      {children}
+    </a>
+  );
+}
+
+function CallWhatsRow({ size = "normal", onDark = true }) {
   const isBig = size === "big";
   const [hoverCall, setHoverCall] = useState(false);
   const [hoverWa, setHoverWa] = useState(false);
+  const outlineColor = onDark ? COLORS.paper : COLORS.ink;
   return (
     <div
       style={{
         display: "flex",
         flexWrap: "wrap",
-        gap: 12,
+        gap: 14,
         justifyContent: "center",
       }}
     >
-      <a
+      <MagneticButton
         href={`tel:${PHONE_TEL}`}
         onMouseEnter={() => setHoverCall(true)}
         onMouseLeave={() => setHoverCall(false)}
@@ -95,24 +240,21 @@ function CallWhatsRow({ size = "normal" }) {
           display: "inline-flex",
           alignItems: "center",
           gap: 10,
-          backgroundColor: COLORS.red,
-          color: COLORS.white,
+          backgroundColor: COLORS.gold,
+          color: COLORS.ink,
           textDecoration: "none",
           fontFamily: "Inter, sans-serif",
-          fontWeight: 700,
-          fontSize: isBig ? 18 : 16,
-          padding: isBig ? "16px 28px" : "13px 22px",
-          borderRadius: 4,
-          letterSpacing: 0.2,
-          boxShadow: hoverCall
-            ? "0 6px 0 rgba(0,0,0,0.25)"
-            : "0 4px 0 rgba(0,0,0,0.25)",
-          transform: hoverCall ? "translateY(-2px)" : "translateY(0)",
-          transition: "transform 0.15s ease, box-shadow 0.15s ease",
+          fontWeight: 600,
+          fontSize: isBig ? 15 : 14,
+          letterSpacing: 0.6,
+          textTransform: "uppercase",
+          padding: isBig ? "17px 32px" : "13px 24px",
+          borderRadius: 2,
+          opacity: hoverCall ? 0.88 : 1,
         }}
       >
-        <span aria-hidden="true">📞</span> Zadzwoń teraz
-      </a>
+        Zadzwoń teraz
+      </MagneticButton>
       <a
         href={`https://wa.me/${PHONE_WA}?text=${encodeURIComponent(
           "Cześć, chcę umówić wizytę w Fade Studio Łódź"
@@ -125,23 +267,21 @@ function CallWhatsRow({ size = "normal" }) {
           display: "inline-flex",
           alignItems: "center",
           gap: 10,
-          backgroundColor: COLORS.green,
-          color: COLORS.white,
+          backgroundColor: "transparent",
+          color: outlineColor,
           textDecoration: "none",
           fontFamily: "Inter, sans-serif",
-          fontWeight: 700,
-          fontSize: isBig ? 18 : 16,
-          padding: isBig ? "16px 28px" : "13px 22px",
-          borderRadius: 4,
-          letterSpacing: 0.2,
-          boxShadow: hoverWa
-            ? "0 6px 0 rgba(0,0,0,0.25)"
-            : "0 4px 0 rgba(0,0,0,0.25)",
-          transform: hoverWa ? "translateY(-2px)" : "translateY(0)",
-          transition: "transform 0.15s ease, box-shadow 0.15s ease",
+          fontWeight: 600,
+          fontSize: isBig ? 15 : 14,
+          letterSpacing: 0.6,
+          textTransform: "uppercase",
+          padding: isBig ? "16px 30px" : "12px 22px",
+          borderRadius: 2,
+          border: `1px solid ${hoverWa ? COLORS.gold : (onDark ? "rgba(245,243,238,0.35)" : "rgba(12,12,13,0.25)")}`,
+          transition: "border-color 0.2s ease",
         }}
       >
-        <span aria-hidden="true">💬</span> WhatsApp
+        WhatsApp
       </a>
     </div>
   );
@@ -158,19 +298,19 @@ function ServiceRow({ s, i, total }) {
         justifyContent: "space-between",
         alignItems: "baseline",
         gap: 12,
-        padding: "16px 20px",
-        backgroundColor: hover ? "rgba(201,64,42,0.05)" : "transparent",
-        borderBottom: i === total - 1 ? "none" : "1px dashed rgba(26,26,26,0.15)",
-        transform: hover ? "translateX(4px)" : "translateX(0)",
-        transition: "background-color 0.2s ease, transform 0.2s ease",
+        padding: "22px 4px",
+        borderBottom: i === total - 1 ? "none" : `1px solid rgba(20,20,19,0.12)`,
+        transform: hover ? "translateX(6px)" : "translateX(0)",
+        transition: "transform 0.25s ease",
       }}
     >
       <span
         style={{
           fontFamily: "Inter, sans-serif",
-          fontSize: 15,
-          fontWeight: 500,
-          color: COLORS.ink,
+          fontSize: 16,
+          fontWeight: 400,
+          color: hover ? COLORS.gold : COLORS.ink,
+          transition: "color 0.25s ease",
         }}
       >
         {s.name}
@@ -178,9 +318,9 @@ function ServiceRow({ s, i, total }) {
       <span
         style={{
           fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 16,
-          fontWeight: 700,
-          color: COLORS.red,
+          fontSize: 15,
+          fontWeight: 500,
+          color: COLORS.gray,
           whiteSpace: "nowrap",
         }}
       >
@@ -202,7 +342,7 @@ function AboutPhoto() {
         aspectRatio: "4 / 3",
         borderRadius: 8,
         overflow: "hidden",
-        border: `1px solid rgba(242,237,228,0.12)`,
+        border: `1px solid rgba(20,20,19,0.12)`,
       }}
     >
       <Image
@@ -232,7 +372,7 @@ function GalleryPhoto({ g }) {
         aspectRatio: "4 / 3",
         borderRadius: 8,
         overflow: "hidden",
-        border: `1px solid rgba(26,26,26,0.08)`,
+        border: `1px solid rgba(20,20,19,0.12)`,
         cursor: "pointer",
       }}
     >
@@ -296,13 +436,13 @@ function OpenStatus() {
           width: 7,
           height: 7,
           borderRadius: "50%",
-          backgroundColor: isOpen ? "#3FA34D" : COLORS.red,
+          backgroundColor: isOpen ? "#6FAE7A" : "#B8554A",
           boxShadow: isOpen
-            ? "0 0 6px rgba(63,163,77,0.7)"
-            : "0 0 6px rgba(201,64,42,0.5)",
+            ? "0 0 6px rgba(111,174,122,0.6)"
+            : "0 0 6px rgba(184,85,74,0.5)",
         }}
       />
-      <span style={{ fontWeight: 600, color: isOpen ? "#3FA34D" : COLORS.red }}>
+      <span style={{ fontWeight: 600, color: isOpen ? "#6FAE7A" : "#B8554A" }}>
         {isOpen ? "Otwarte teraz" : "Zamknięte teraz"}
       </span>
       <span style={{ opacity: 0.6 }}>
@@ -317,8 +457,8 @@ function Logo({ light = true }) {
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 9 }}>
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <circle cx="6" cy="6" r="2.4" stroke={COLORS.red} strokeWidth="1.6" />
-        <circle cx="6" cy="18" r="2.4" stroke={COLORS.red} strokeWidth="1.6" />
+        <circle cx="6" cy="6" r="2.4" stroke={COLORS.gold} strokeWidth="1.6" />
+        <circle cx="6" cy="18" r="2.4" stroke={COLORS.gold} strokeWidth="1.6" />
         <path
           d="M7.8 7.6L19 18M19 6L7.8 16.4"
           stroke={color}
@@ -376,11 +516,11 @@ function Navbar() {
         left: 0,
         right: 0,
         zIndex: 60,
-        backgroundColor: scrolled ? "rgba(26,26,26,0.92)" : "transparent",
+        backgroundColor: scrolled ? "rgba(12,12,13,0.92)" : "transparent",
         backdropFilter: scrolled ? "blur(10px)" : "none",
         WebkitBackdropFilter: scrolled ? "blur(10px)" : "none",
         borderBottom: scrolled
-          ? "1px solid rgba(242,237,228,0.1)"
+          ? "1px solid rgba(245,243,238,0.1)"
           : "1px solid transparent",
         transition: "background-color 0.3s ease, border-color 0.3s ease",
       }}
@@ -415,46 +555,25 @@ function Navbar() {
         </div>
 
         <div
-          style={{ display: "none", gap: 10, alignItems: "center" }}
+          style={{ display: "none", alignItems: "center" }}
           className="nav-cta-desktop"
         >
           <a
             href={`tel:${PHONE_TEL}`}
-            aria-label="Zadzwoń"
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              backgroundColor: COLORS.red,
-              color: COLORS.white,
+              fontFamily: "Inter, sans-serif",
+              fontWeight: 600,
+              fontSize: 13,
+              letterSpacing: 0.6,
+              textTransform: "uppercase",
+              color: COLORS.ink,
+              backgroundColor: COLORS.gold,
               textDecoration: "none",
-              fontSize: 15,
+              padding: "11px 22px",
+              borderRadius: 2,
             }}
           >
-            📞
-          </a>
-          <a
-            href={`https://wa.me/${PHONE_WA}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="WhatsApp"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 36,
-              height: 36,
-              borderRadius: "50%",
-              backgroundColor: COLORS.green,
-              color: COLORS.white,
-              textDecoration: "none",
-              fontSize: 15,
-            }}
-          >
-            💬
+            Umów się
           </a>
         </div>
 
@@ -482,8 +601,8 @@ function Navbar() {
         <div
           className="nav-toggle-mobile"
           style={{
-            backgroundColor: "rgba(26,26,26,0.97)",
-            borderTop: "1px solid rgba(242,237,228,0.1)",
+            backgroundColor: "rgba(12,12,13,0.97)",
+            borderTop: "1px solid rgba(245,243,238,0.1)",
             padding: "14px 20px 22px",
             display: "flex",
             flexDirection: "column",
@@ -514,17 +633,406 @@ function Navbar() {
   );
 }
 
+function ServiceCategoryTile_UNUSED_REMOVE_MARKER() {}
+
+function BarberRoster() {
+  const barbers = [
+    { name: "Marek", role: "Founder · Fade specjalista", img: IMG.barber1 },
+    { name: "Tomek", role: "Klasyczne strzyżenia", img: IMG.barber2 },
+    { name: "Kuba", role: "Broda & golenie", img: IMG.barber3 },
+    { name: "Adrian", role: "Fade & teksturyzacja", img: IMG.barber4 },
+  ];
+  return (
+    <div style={{ marginTop: 72, maxWidth: 1040, margin: "72px auto 0" }}>
+      <div
+        style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 12,
+          letterSpacing: 2,
+          textTransform: "uppercase",
+          color: COLORS.gold,
+          marginBottom: 24,
+          padding: "0 24px",
+        }}
+      >
+        Zespół
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: 16,
+          padding: "0 24px",
+        }}
+      >
+        {barbers.map((b) => (
+          <BarberCard key={b.name} barber={b} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BarberCard({ barber }) {
+  const [hover, setHover] = useState(false);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const ref = useRef(null);
+
+  const onMouseMove = (e) => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width - 0.5;
+    const py = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({ x: py * -10, y: px * 10 });
+  };
+  const onLeave = () => {
+    setHover(false);
+    setTilt({ x: 0, y: 0 });
+  };
+
+  return (
+    <div
+      ref={ref}
+      data-cursor-hover
+      onMouseEnter={() => setHover(true)}
+      onMouseMove={onMouseMove}
+      onMouseLeave={onLeave}
+      style={{
+        width: "100%",
+        aspectRatio: "3 / 4",
+        position: "relative",
+        overflow: "hidden",
+        cursor: "pointer",
+        backgroundColor: COLORS.ink,
+        transform: `perspective(800px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg) ${hover ? "scale(1.03)" : "scale(1)"}`,
+        transformStyle: "preserve-3d",
+        transition: hover
+          ? "transform 0.1s ease-out"
+          : "transform 0.5s cubic-bezier(0.16,1,0.3,1)",
+        boxShadow: hover
+          ? "0 24px 40px -12px rgba(20,20,19,0.35)"
+          : "0 4px 12px -4px rgba(20,20,19,0.1)",
+      }}
+    >
+      <Image
+        src={barber.img}
+        alt={`${barber.name} — ${barber.role}`}
+        fill
+        sizes="(max-width: 768px) 50vw, 240px"
+        style={{
+          objectFit: "cover",
+          objectPosition: "center 20%",
+          filter: hover ? "grayscale(0)" : "grayscale(0.55)",
+          transform: hover ? "scale(1.08)" : "scale(1)",
+          transition: "transform 0.6s cubic-bezier(0.16,1,0.3,1), filter 0.5s ease",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "linear-gradient(180deg, rgba(20,20,19,0.05) 40%, rgba(20,20,19,0.9) 100%)",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          padding: "20px 18px",
+          transform: hover ? "translateY(-4px)" : "translateY(0)",
+          transition: "transform 0.4s cubic-bezier(0.16,1,0.3,1)",
+        }}
+      >
+        <div
+          style={{
+            fontFamily: "'Bebas Neue', Inter, sans-serif",
+            fontSize: 24,
+            color: COLORS.paper,
+            letterSpacing: 0.5,
+            lineHeight: 1,
+          }}
+        >
+          {barber.name}
+        </div>
+        <div
+          style={{
+            fontFamily: "Inter, sans-serif",
+            fontSize: 12,
+            color: "rgba(244,242,238,0.7)",
+            marginTop: 6,
+          }}
+        >
+          {barber.role}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReviewsCarousel() {
+  const reviews = [
+    {
+      name: "Michał K.",
+      text: "W końcu fade, który trzyma formę dłużej niż tydzień. Czysta robota, bez pośpiechu.",
+    },
+    {
+      name: "Paweł S.",
+      text: "Umówiłem się przez WhatsApp wieczorem, następnego dnia byłem ostrzyżony. Prosto i bez zamieszania.",
+    },
+    {
+      name: "Adam W.",
+      text: "Pierwszy raz czułem, że barber faktycznie słucha, czego chcę, zamiast robić swoje.",
+    },
+    {
+      name: "Kamil R.",
+      text: "Atmosfera jak u znajomego, ale poziom wykończenia jak w dobrym salonie w centrum.",
+    },
+    {
+      name: "Łukasz N.",
+      text: "Broda przycięta tak, że nareszcie pasuje do kształtu twarzy. Wracam co miesiąc.",
+    },
+  ];
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 20,
+        overflowX: "auto",
+        padding: "32px 24px 8px",
+        WebkitOverflowScrolling: "touch",
+      }}
+    >
+      {reviews.map((r) => (
+        <div
+          key={r.name}
+          style={{
+            flex: "0 0 auto",
+            width: 280,
+            backgroundColor: COLORS.surface,
+            border: `1px solid rgba(20,20,19,0.08)`,
+            padding: 28,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "'Bebas Neue', Inter, sans-serif",
+              fontSize: 18,
+              color: COLORS.gold,
+              marginBottom: 14,
+              letterSpacing: 2,
+            }}
+          >
+            ★★★★★
+          </div>
+          <p
+            style={{
+              fontFamily: "Inter, sans-serif",
+              color: COLORS.ink,
+              opacity: 0.85,
+              fontSize: 14,
+              lineHeight: 1.7,
+              marginBottom: 20,
+            }}
+          >
+            {r.text}
+          </p>
+          <div
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 12,
+              color: COLORS.gray,
+            }}
+          >
+            {r.name}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TreatmentsTabs() {
+  const categories = [
+    {
+      label: "Strzyżenie",
+      desc: "Klasyczne cięcia i ostre fade'y, dopasowane do kształtu twarzy.",
+      img: IMG.gallery2,
+    },
+    {
+      label: "Broda",
+      desc: "Trymowanie, golenie brzytwą na gorąco, pełna stylizacja.",
+      img: IMG.about,
+    },
+    {
+      label: "Pełny zestaw",
+      desc: "Strzyżenie, broda i mycie — kompletna sesja bez pośpiechu.",
+      img: IMG.gallery3,
+    },
+  ];
+  const [active, setActive] = useState(0);
+
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 1fr)",
+        gap: 40,
+        alignItems: "center",
+      }}
+      className="treatments-grid"
+    >
+      <div>
+        {categories.map((cat, i) => {
+          const isActive = i === active;
+          return (
+            <div
+              key={cat.label}
+              data-cursor-hover
+              onClick={() => setActive(i)}
+              onMouseEnter={() => setActive(i)}
+              style={{
+                position: "relative",
+                padding: "22px 0 22px 18px",
+                borderBottom: `1px solid rgba(20,20,19,0.1)`,
+                cursor: "pointer",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 2,
+                  backgroundColor: COLORS.gold,
+                  transform: isActive ? "scaleY(1)" : "scaleY(0)",
+                  transformOrigin: "top",
+                  transition: "transform 0.4s cubic-bezier(0.16,1,0.3,1)",
+                }}
+              />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: 14,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 13,
+                    color: isActive ? COLORS.gold : "rgba(20,20,19,0.3)",
+                    transition: "color 0.3s ease",
+                  }}
+                >
+                  0{i + 1}
+                </span>
+                <span
+                  style={{
+                    fontFamily: "'Bebas Neue', Inter, sans-serif",
+                    fontSize: "clamp(30px, 5vw, 44px)",
+                    color: isActive ? COLORS.ink : "rgba(20,20,19,0.3)",
+                    letterSpacing: 0.5,
+                    transition: "color 0.3s ease",
+                  }}
+                >
+                  {cat.label}
+                </span>
+              </div>
+              <div
+                style={{
+                  maxHeight: isActive ? 60 : 0,
+                  opacity: isActive ? 1 : 0,
+                  overflow: "hidden",
+                  transition: "max-height 0.4s ease, opacity 0.3s ease",
+                }}
+              >
+                <p
+                  style={{
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: 14,
+                    color: COLORS.gray,
+                    marginTop: 10,
+                    marginLeft: 38,
+                    maxWidth: 360,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {cat.desc}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          aspectRatio: "1 / 1",
+          overflow: "hidden",
+        }}
+      >
+        {categories.map((cat, i) => (
+          <Image
+            key={cat.label}
+            src={cat.img}
+            alt={cat.label}
+            fill
+            sizes="(max-width: 768px) 100vw, 700px"
+            style={{
+              objectFit: "cover",
+              opacity: i === active ? 1 : 0,
+              transform: i === active ? "scale(1.06)" : "scale(1)",
+              transition: "opacity 0.6s ease, transform 8s cubic-bezier(0.16,1,0.3,1)",
+              position: "absolute",
+              inset: 0,
+            }}
+          />
+        ))}
+      </div>
+
+      <style>{`
+        @media (min-width: 860px) {
+          .treatments-grid {
+            grid-template-columns: 0.8fr 1.2fr !important;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function Home() {
   const [scrolled, setScrolled] = useState(false);
   const [heroLoaded, setHeroLoaded] = useState(false);
+  const [parallax, setParallax] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", onScroll);
     const t = setTimeout(() => setHeroLoaded(true), 80);
+
+    const isTouch = window.matchMedia("(pointer: coarse)").matches;
+    let onMove;
+    if (!isTouch) {
+      onMove = (e) => {
+        const x = (e.clientX / window.innerWidth - 0.5) * 2;
+        const y = (e.clientY / window.innerHeight - 0.5) * 2;
+        setParallax({ x, y });
+      };
+      window.addEventListener("mousemove", onMove);
+    }
+
     return () => {
       window.removeEventListener("scroll", onScroll);
       clearTimeout(t);
+      if (onMove) window.removeEventListener("mousemove", onMove);
     };
   }, []);
 
@@ -553,7 +1061,9 @@ export default function Home() {
         width: "100%",
         overflowX: "hidden",
       }}
+      className="fade-studio-root"
     >
+      <CustomCursor />
       <Navbar />
 
       {/* Sticky mobile call bar */}
@@ -565,10 +1075,11 @@ export default function Home() {
           right: 0,
           zIndex: 50,
           display: scrolled ? "flex" : "none",
-          backgroundColor: COLORS.ink,
-          padding: "10px 14px",
+          backgroundColor: COLORS.surface,
+          padding: "12px 16px",
           gap: 10,
-          boxShadow: "0 -4px 16px rgba(0,0,0,0.3)",
+          boxShadow: "0 -4px 20px rgba(0,0,0,0.4)",
+          borderTop: `1px solid rgba(20,20,19,0.1)`,
         }}
       >
         <a
@@ -576,17 +1087,19 @@ export default function Home() {
           style={{
             flex: 1,
             textAlign: "center",
-            backgroundColor: COLORS.red,
-            color: COLORS.white,
+            backgroundColor: COLORS.gold,
+            color: COLORS.ink,
             textDecoration: "none",
-            fontWeight: 700,
+            fontWeight: 600,
             fontFamily: "Inter, sans-serif",
-            padding: "12px 0",
-            borderRadius: 4,
-            fontSize: 15,
+            padding: "13px 0",
+            borderRadius: 2,
+            fontSize: 13,
+            letterSpacing: 0.4,
+            textTransform: "uppercase",
           }}
         >
-          📞 Zadzwoń
+          Zadzwoń
         </a>
         <a
           href={`https://wa.me/${PHONE_WA}`}
@@ -595,17 +1108,20 @@ export default function Home() {
           style={{
             flex: 1,
             textAlign: "center",
-            backgroundColor: COLORS.green,
-            color: COLORS.white,
+            backgroundColor: "transparent",
+            color: COLORS.ink,
             textDecoration: "none",
-            fontWeight: 700,
+            fontWeight: 600,
             fontFamily: "Inter, sans-serif",
             padding: "12px 0",
-            borderRadius: 4,
-            fontSize: 15,
+            borderRadius: 2,
+            fontSize: 13,
+            letterSpacing: 0.4,
+            textTransform: "uppercase",
+            border: `1px solid rgba(20,20,19,0.25)`,
           }}
         >
-          💬 WhatsApp
+          WhatsApp
         </a>
       </div>
 
@@ -633,7 +1149,9 @@ export default function Home() {
           style={{
             objectFit: "cover",
             zIndex: 0,
-            opacity: 0.38,
+            opacity: 0.5,
+            transform: `scale(1.08) translate(${parallax.x * -10}px, ${parallax.y * -10}px)`,
+            transition: "transform 0.4s cubic-bezier(0.16,1,0.3,1)",
           }}
         />
         <div
@@ -642,7 +1160,7 @@ export default function Home() {
             inset: 0,
             zIndex: 1,
             background:
-              "linear-gradient(180deg, rgba(26,26,26,0.65) 0%, rgba(26,26,26,0.55) 40%, rgba(26,26,26,0.85) 100%), radial-gradient(circle at 30% 20%, rgba(201,64,42,0.22), transparent 55%), radial-gradient(circle at 80% 80%, rgba(43,74,62,0.3), transparent 55%)",
+              "linear-gradient(180deg, rgba(12,12,13,0.55) 0%, rgba(12,12,13,0.45) 40%, rgba(12,12,13,0.9) 100%), radial-gradient(circle at 75% 15%, rgba(201,162,39,0.12), transparent 50%)",
           }}
         />
 
@@ -650,10 +1168,10 @@ export default function Home() {
           <div
             style={{
               fontFamily: "Inter, sans-serif",
-              color: COLORS.red,
-              fontWeight: 700,
+              color: COLORS.gold,
+              fontWeight: 600,
               letterSpacing: 3,
-              fontSize: 13,
+              fontSize: 12,
               textTransform: "uppercase",
               marginBottom: 18,
               opacity: heroLoaded ? 1 : 0,
@@ -667,20 +1185,18 @@ export default function Home() {
           <h1
             style={{
               fontFamily: "'Bebas Neue', Inter, sans-serif",
-              fontSize: "clamp(42px, 11vw, 88px)",
-              lineHeight: 0.98,
+              fontSize: "clamp(56px, 13vw, 132px)",
+              lineHeight: 0.92,
               color: COLORS.paper,
               margin: 0,
-              maxWidth: 760,
+              maxWidth: 900,
               letterSpacing: 0.5,
               opacity: heroLoaded ? 1 : 0,
               transform: heroLoaded ? "translateY(0)" : "translateY(24px)",
               transition: "opacity 0.7s ease 0.18s, transform 0.7s ease 0.18s",
             }}
           >
-            ŚWIEŻE FADE'Y I NOWOCZESNE
-            <br />
-            STRZYŻENIA W ŁODZI
+            Fade'y warte czekania
           </h1>
 
           <p
@@ -716,122 +1232,224 @@ export default function Home() {
 
           <div
             style={{
-              marginTop: 30,
+              marginTop: 36,
               display: "flex",
-              gap: 22,
+              gap: 0,
               flexWrap: "wrap",
               justifyContent: "center",
-              color: COLORS.paper,
-              opacity: heroLoaded ? 0.75 : 0,
-              fontSize: 13,
-              fontFamily: "Inter, sans-serif",
+              alignItems: "center",
+              color: COLORS.gray,
+              opacity: heroLoaded ? 1 : 0,
+              fontSize: 12,
+              letterSpacing: 0.4,
+              fontFamily: "'JetBrains Mono', monospace",
               transform: heroLoaded ? "translateY(0)" : "translateY(14px)",
               transition: "opacity 0.6s ease 0.6s, transform 0.6s ease 0.6s",
             }}
           >
-            <span>⭐ 4.9 / 5 lokalnych opinii</span>
-            <span>📍 ul. Piotrkowska, Łódź</span>
-            <span>🕒 Pon–Sob 9:00–19:00</span>
+            <span>4.9 / 5 lokalnych opinii</span>
+            <span style={{ margin: "0 14px", color: COLORS.gold }}>·</span>
+            <span>ul. Piotrkowska, Łódź</span>
+            <span style={{ margin: "0 14px", color: COLORS.gold }}>·</span>
+            <span>Pon–Sob 9:00–19:00</span>
           </div>
         </div>
       </section>
 
-      <StripeDivider />
+      <div style={{ padding: "48px 0" }}><GoldRule /></div>
+
+      {/* STATS */}
+      <section style={{ padding: "0 24px 100px", maxWidth: 900, margin: "0 auto" }}>
+        <Reveal>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: 32,
+              textAlign: "center",
+            }}
+          >
+            <CountUpStat target={4.9} decimals={1} label="Opinie Google" />
+            <CountUpStat target={8} suffix="+" label="Lat doświadczenia" />
+            <CountUpStat target={3} label="Barberów na miejscu" />
+          </div>
+        </Reveal>
+      </section>
+
+      <div style={{ padding: "0 0 48px" }}><GoldRule /></div>
 
       {/* SERVICES */}
       <section
         id="cennik"
         style={{
-          padding: "70px 20px",
-          maxWidth: 640,
+          padding: "120px 24px 0",
+          maxWidth: 1080,
           margin: "0 auto",
         }}
       >
         <Reveal>
+          <div
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 12,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+              color: COLORS.gold,
+              marginBottom: 16,
+              textAlign: "center",
+            }}
+          >
+            Usługi
+          </div>
           <h2
             style={{
               fontFamily: "'Bebas Neue', Inter, sans-serif",
-              fontSize: "clamp(32px, 7vw, 48px)",
+              fontSize: "clamp(34px, 6vw, 52px)",
               color: COLORS.ink,
-              marginBottom: 6,
+              marginBottom: 56,
               letterSpacing: 0.5,
+              lineHeight: 1.05,
+              textAlign: "center",
             }}
           >
-            CENNIK
+            Dopasowane do Ciebie
+          </h2>
+        </Reveal>
+
+        <Reveal delay={0.1}>
+          <TreatmentsTabs />
+        </Reveal>
+
+        <div style={{ maxWidth: 640, margin: "100px auto 0", paddingBottom: 120 }}>
+          <Reveal>
+            <p
+              style={{
+                fontFamily: "Inter, sans-serif",
+                color: COLORS.gray,
+                marginBottom: 40,
+                fontSize: 15,
+                lineHeight: 1.6,
+                textAlign: "center",
+              }}
+            >
+              Pełny cennik — tak jak na tablicy w zakładzie, bez ukrytych dopłat.
+            </p>
+          </Reveal>
+
+          <Reveal delay={0.1}>
+            <div>
+              {services.map((s, i) => (
+                <ServiceRow key={s.name} s={s} i={i} total={services.length} />
+              ))}
+            </div>
+          </Reveal>
+
+          <div style={{ marginTop: 48, textAlign: "center" }}>
+            <CallWhatsRow onDark={false} />
+          </div>
+        </div>
+      </section>
+
+      <div style={{ padding: "48px 0" }}><GoldRule /></div>
+
+      {/* DETAIL */}
+      <section style={{ padding: "0 24px 100px", maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
+        <Reveal>
+          <div
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 12,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+              color: COLORS.gold,
+              marginBottom: 16,
+            }}
+          >
+            Drobny szczegół
+          </div>
+          <h2
+            style={{
+              fontFamily: "'Bebas Neue', Inter, sans-serif",
+              fontSize: "clamp(28px, 5vw, 38px)",
+              color: COLORS.ink,
+              marginBottom: 18,
+              letterSpacing: 0.5,
+              lineHeight: 1.1,
+            }}
+          >
+            Kawa, póki czekasz
           </h2>
           <p
             style={{
               fontFamily: "Inter, sans-serif",
               color: COLORS.gray,
-              marginBottom: 30,
-              fontSize: 15,
+              fontSize: 16,
+              lineHeight: 1.8,
+              maxWidth: 480,
+              margin: "0 auto",
             }}
           >
-            Uczciwe ceny, bez ukrytych dopłat. Tak jak na tablicy w zakładzie.
+            Świeża kawa parzona na miejscu — bo dobre strzyżenie to nie tylko
+            nożyczki i maszynka, to też dziesięć minut, w których możesz
+            się po prostu zatrzymać.
           </p>
         </Reveal>
-
-        <Reveal delay={0.1}>
-          <div
-            style={{
-              backgroundColor: COLORS.white,
-              border: `1px solid rgba(26,26,26,0.08)`,
-              borderRadius: 6,
-              overflow: "hidden",
-            }}
-          >
-            {services.map((s, i) => (
-              <ServiceRow key={s.name} s={s} i={i} total={services.length} />
-            ))}
-          </div>
-        </Reveal>
-
-        <div style={{ marginTop: 28, textAlign: "center" }}>
-          <CallWhatsRow />
-        </div>
       </section>
 
-      <StripeDivider height={6} />
+      <div style={{ padding: "0 0 48px" }}><GoldRule /></div>
 
       {/* ABOUT */}
       <section
         style={{
-          backgroundColor: COLORS.ink,
-          padding: "70px 20px",
+          backgroundColor: COLORS.surface,
+          padding: "120px 24px",
         }}
       >
         <Reveal>
           <div
             style={{
-              maxWidth: 980,
+              maxWidth: 1040,
               margin: "0 auto",
               display: "grid",
               gridTemplateColumns: "minmax(0, 1fr)",
-              gap: 36,
+              gap: 56,
             }}
             className="about-grid"
           >
             <AboutPhoto />
 
             <div>
+              <div
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 12,
+                  letterSpacing: 2,
+                  textTransform: "uppercase",
+                  color: COLORS.gold,
+                  marginBottom: 16,
+                }}
+              >
+                Kto tnie
+              </div>
               <h2
                 style={{
                   fontFamily: "'Bebas Neue', Inter, sans-serif",
-                  fontSize: "clamp(30px, 6vw, 42px)",
-                  color: COLORS.paper,
-                  marginBottom: 20,
+                  fontSize: "clamp(32px, 6vw, 46px)",
+                  color: COLORS.ink,
+                  marginBottom: 24,
                   letterSpacing: 0.5,
+                  lineHeight: 1.05,
                 }}
               >
-                KTO TNIE
+                Rzemiosło, nie pośpiech
               </h2>
               <p
                 style={{
                   fontFamily: "Inter, sans-serif",
                   color: COLORS.gray,
                   fontSize: 16,
-                  lineHeight: 1.75,
-                  marginBottom: 16,
+                  lineHeight: 1.8,
+                  marginBottom: 18,
                 }}
               >
                 Cześć, tu Fade Studio. Strzygę w Łodzi od lat i widziałem już
@@ -847,7 +1465,7 @@ export default function Home() {
                   fontFamily: "Inter, sans-serif",
                   color: COLORS.gray,
                   fontSize: 16,
-                  lineHeight: 1.75,
+                  lineHeight: 1.8,
                 }}
               >
                 Zakład jest mały, kameralny, bez korporacyjnego zgiełku.
@@ -858,38 +1476,56 @@ export default function Home() {
             </div>
           </div>
         </Reveal>
+
+        <Reveal delay={0.15}>
+          <BarberRoster />
+        </Reveal>
       </section>
 
-      <StripeDivider height={6} />
+      <div style={{ padding: "48px 0" }}><GoldRule /></div>
 
       {/* GALLERY */}
       <section
         id="galeria"
         style={{
-          padding: "70px 20px",
-          maxWidth: 980,
+          padding: "120px 24px",
+          maxWidth: 1080,
           margin: "0 auto",
         }}
       >
         <Reveal>
-          <h2
+          <div
             style={{
-              fontFamily: "'Bebas Neue', Inter, sans-serif",
-              fontSize: "clamp(30px, 6vw, 42px)",
-              color: COLORS.ink,
-              marginBottom: 6,
-              letterSpacing: 0.5,
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 12,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+              color: COLORS.gold,
+              marginBottom: 16,
               textAlign: "center",
             }}
           >
-            U NAS W ŚRODKU
+            Galeria
+          </div>
+          <h2
+            style={{
+              fontFamily: "'Bebas Neue', Inter, sans-serif",
+              fontSize: "clamp(32px, 6vw, 48px)",
+              color: COLORS.ink,
+              marginBottom: 14,
+              letterSpacing: 0.5,
+              textAlign: "center",
+              lineHeight: 1.05,
+            }}
+          >
+            U nas w środku
           </h2>
           <p
             style={{
               fontFamily: "Inter, sans-serif",
               color: COLORS.gray,
-              marginBottom: 30,
-              fontSize: 15,
+              marginBottom: 56,
+              fontSize: 16,
               textAlign: "center",
             }}
           >
@@ -900,8 +1536,8 @@ export default function Home() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 16,
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 20,
           }}
         >
           {gallery.map((g, i) => (
@@ -912,11 +1548,57 @@ export default function Home() {
         </div>
       </section>
 
+      <div style={{ padding: "48px 0" }}><GoldRule /></div>
+
+      {/* REVIEWS */}
+      <section style={{ padding: "100px 0 120px" }}>
+        <Reveal>
+          <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 24px" }}>
+            <div
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 12,
+                letterSpacing: 2,
+                textTransform: "uppercase",
+                color: COLORS.gold,
+                marginBottom: 16,
+              }}
+            >
+              Opinie
+            </div>
+            <h2
+              style={{
+                fontFamily: "'Bebas Neue', Inter, sans-serif",
+                fontSize: "clamp(32px, 6vw, 46px)",
+                color: COLORS.ink,
+                marginBottom: 8,
+                letterSpacing: 0.5,
+                lineHeight: 1.05,
+              }}
+            >
+              Co mówią klienci
+            </h2>
+            <p
+              style={{
+                fontFamily: "Inter, sans-serif",
+                color: COLORS.gray,
+                fontSize: 13,
+                marginBottom: 0,
+              }}
+            >
+              Przykładowe opinie — wersja demonstracyjna.
+            </p>
+          </div>
+        </Reveal>
+
+        <ReviewsCarousel />
+      </section>
+
       {/* SEO SECTION */}
       <section
         style={{
-          padding: "60px 20px",
-          maxWidth: 640,
+          padding: "100px 24px",
+          maxWidth: 680,
           margin: "0 auto",
         }}
       >
@@ -924,20 +1606,21 @@ export default function Home() {
           <h2
             style={{
               fontFamily: "'Bebas Neue', Inter, sans-serif",
-              fontSize: "clamp(28px, 6vw, 36px)",
+              fontSize: "clamp(28px, 5vw, 38px)",
               color: COLORS.ink,
-              marginBottom: 16,
+              marginBottom: 20,
               letterSpacing: 0.5,
+              lineHeight: 1.1,
             }}
           >
-            BARBER ŁÓDŹ — TWOJA OKOLICA
+            Barber Łódź — Twoja okolica
           </h2>
           <p
             style={{
               fontFamily: "Inter, sans-serif",
               color: COLORS.gray,
-              fontSize: 15,
-              lineHeight: 1.7,
+              fontSize: 16,
+              lineHeight: 1.8,
             }}
           >
             Szukasz <strong style={{ color: COLORS.ink }}>barbera w Łodzi</strong>,
@@ -954,36 +1637,49 @@ export default function Home() {
         </Reveal>
       </section>
 
-      <StripeDivider height={6} />
+      <div style={{ padding: "48px 0" }}><GoldRule /></div>
 
       {/* MAP */}
       <section
         id="mapa"
         style={{
-          padding: "70px 20px",
+          padding: "120px 24px",
           maxWidth: 760,
           margin: "0 auto",
           textAlign: "center",
         }}
       >
         <Reveal>
+          <div
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 12,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+              color: COLORS.gold,
+              marginBottom: 16,
+            }}
+          >
+            Lokalizacja
+          </div>
           <h2
             style={{
               fontFamily: "'Bebas Neue', Inter, sans-serif",
-              fontSize: "clamp(30px, 6vw, 42px)",
+              fontSize: "clamp(32px, 6vw, 46px)",
               color: COLORS.ink,
-              marginBottom: 8,
+              marginBottom: 10,
               letterSpacing: 0.5,
+              lineHeight: 1.05,
             }}
           >
-            ZNAJDŹ NAS
+            Znajdź nas
           </h2>
           <p
             style={{
               fontFamily: "Inter, sans-serif",
               color: COLORS.gray,
-              marginBottom: 26,
-              fontSize: 15,
+              marginBottom: 40,
+              fontSize: 16,
             }}
           >
             {ADDRESS}
@@ -991,10 +1687,11 @@ export default function Home() {
 
           <div
             style={{
-              borderRadius: 6,
+              borderRadius: 4,
               overflow: "hidden",
-              border: `1px solid rgba(26,26,26,0.1)`,
-              marginBottom: 20,
+              border: `1px solid rgba(20,20,19,0.12)`,
+              marginBottom: 28,
+              filter: "grayscale(0.4) contrast(1.05)",
             }}
           >
             <iframe
@@ -1015,13 +1712,15 @@ export default function Home() {
             style={{
               display: "inline-block",
               fontFamily: "Inter, sans-serif",
-              fontWeight: 700,
-              fontSize: 14,
+              fontWeight: 600,
+              fontSize: 13,
+              letterSpacing: 0.6,
+              textTransform: "uppercase",
               color: COLORS.ink,
               textDecoration: "none",
-              border: `2px solid ${COLORS.ink}`,
-              padding: "11px 22px",
-              borderRadius: 4,
+              border: `1px solid rgba(20,20,19,0.25)`,
+              padding: "13px 26px",
+              borderRadius: 2,
             }}
           >
             Otwórz w Google Maps →
@@ -1033,29 +1732,43 @@ export default function Home() {
       <section
         id="kontakt"
         style={{
-          backgroundColor: COLORS.green,
-          padding: "70px 20px",
+          backgroundColor: COLORS.surface,
+          padding: "130px 24px",
           textAlign: "center",
         }}
       >
         <Reveal>
+          <div
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 12,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+              color: COLORS.gold,
+              marginBottom: 18,
+            }}
+          >
+            Rezerwacja
+          </div>
           <h2
             style={{
               fontFamily: "'Bebas Neue', Inter, sans-serif",
-              fontSize: "clamp(32px, 7vw, 48px)",
-              color: COLORS.paper,
-              marginBottom: 10,
+              fontSize: "clamp(36px, 8vw, 60px)",
+              color: COLORS.ink,
+              marginBottom: 14,
               letterSpacing: 0.5,
+              lineHeight: 1,
             }}
           >
-            UMÓW SIĘ DZIŚ
+            Umów się dziś
           </h2>
           <p
             style={{
               fontFamily: "Inter, sans-serif",
-              color: "rgba(242,237,228,0.8)",
-              fontSize: 16,
-              marginBottom: 8,
+              color: COLORS.ink,
+              opacity: 0.7,
+              fontSize: 17,
+              marginBottom: 6,
             }}
           >
             {PHONE_DISPLAY}
@@ -1063,15 +1776,15 @@ export default function Home() {
           <p
             style={{
               fontFamily: "Inter, sans-serif",
-              color: "rgba(242,237,228,0.8)",
+              color: COLORS.gray,
               fontSize: 14,
-              marginBottom: 34,
+              marginBottom: 44,
             }}
           >
             Pon–Sob: 9:00–19:00 · Niedziela: zamknięte
           </p>
 
-          <CallWhatsRow size="big" />
+          <CallWhatsRow size="big" onDark={false} />
         </Reveal>
       </section>
 
@@ -1079,25 +1792,172 @@ export default function Home() {
       <footer
         style={{
           backgroundColor: COLORS.ink,
-          padding: "26px 20px",
-          textAlign: "center",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 4,
+          padding: "72px 24px 32px",
         }}
       >
-        <OpenStatus />
-        <p
+        <div
           style={{
-            fontFamily: "Inter, sans-serif",
-            color: COLORS.gray,
-            fontSize: 12,
-            margin: 0,
+            maxWidth: 1100,
+            margin: "0 auto",
+            display: "grid",
+            gridTemplateColumns: "minmax(0, 1fr)",
+            gap: 48,
+          }}
+          className="footer-grid"
+        >
+          <div>
+            <Logo light />
+            <p
+              style={{
+                fontFamily: "Inter, sans-serif",
+                color: "rgba(244,242,238,0.5)",
+                fontSize: 13,
+                marginTop: 16,
+                lineHeight: 1.6,
+                maxWidth: 240,
+              }}
+            >
+              Świeże fade&apos;y i nowoczesne strzyżenia w Łodzi.
+            </p>
+          </div>
+
+          <div>
+            <div
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 11,
+                letterSpacing: 1.5,
+                textTransform: "uppercase",
+                color: COLORS.gold,
+                marginBottom: 14,
+              }}
+            >
+              Adres
+            </div>
+            <div
+              style={{
+                fontFamily: "Inter, sans-serif",
+                color: COLORS.paper,
+                fontSize: 14,
+                lineHeight: 1.7,
+              }}
+            >
+              {ADDRESS}
+            </div>
+            <a
+              href={MAPS_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-block",
+                marginTop: 8,
+                fontFamily: "Inter, sans-serif",
+                fontSize: 13,
+                color: "rgba(244,242,238,0.5)",
+                textDecoration: "none",
+              }}
+            >
+              Wyznacz trasę →
+            </a>
+          </div>
+
+          <div>
+            <div
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 11,
+                letterSpacing: 1.5,
+                textTransform: "uppercase",
+                color: COLORS.gold,
+                marginBottom: 14,
+              }}
+            >
+              Godziny
+            </div>
+            <div
+              style={{
+                fontFamily: "Inter, sans-serif",
+                color: COLORS.paper,
+                fontSize: 14,
+                lineHeight: 1.7,
+              }}
+            >
+              Pon–Sob: 9:00–19:00
+              <br />
+              Niedziela: zamknięte
+            </div>
+          </div>
+
+          <div>
+            <div
+              style={{
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 11,
+                letterSpacing: 1.5,
+                textTransform: "uppercase",
+                color: COLORS.gold,
+                marginBottom: 14,
+              }}
+            >
+              Nawigacja
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                { href: "#cennik", label: "Cennik" },
+                { href: "#galeria", label: "Galeria" },
+                { href: "#kontakt", label: "Kontakt" },
+              ].map((l) => (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  style={{
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: 14,
+                    color: COLORS.paper,
+                    textDecoration: "none",
+                  }}
+                >
+                  {l.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            maxWidth: 1100,
+            margin: "56px auto 0",
+            paddingTop: 24,
+            borderTop: `1px solid rgba(244,242,238,0.1)`,
+            display: "flex",
+            flexWrap: "wrap",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 16,
           }}
         >
-          © {new Date().getFullYear()} Fade Studio Łódź · {ADDRESS}
-        </p>
+          <OpenStatus />
+          <p
+            style={{
+              fontFamily: "Inter, sans-serif",
+              color: COLORS.gray,
+              fontSize: 12,
+              margin: 0,
+              letterSpacing: 0.3,
+            }}
+          >
+            © {new Date().getFullYear()} Fade Studio Łódź
+          </p>
+        </div>
+
+        <style>{`
+          @media (min-width: 768px) {
+            .footer-grid {
+              grid-template-columns: 1.4fr 1fr 1fr 1fr !important;
+            }
+          }
+        `}</style>
       </footer>
 
       <div style={{ height: 60 }} />
@@ -1107,6 +1967,11 @@ export default function Home() {
           .about-grid {
             grid-template-columns: 460px 1fr !important;
             align-items: center;
+          }
+        }
+        @media (pointer: fine) {
+          .fade-studio-root, .fade-studio-root * {
+            cursor: none !important;
           }
         }
       `}</style>
